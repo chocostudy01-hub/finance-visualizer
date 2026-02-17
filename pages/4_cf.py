@@ -14,7 +14,8 @@ st.title(f"CF キャッシュフロー - {info['name']}")
 
 cf = load_cf(code)
 periods = cf["期"].tolist()
-selected_period = st.selectbox("表示期間", periods[::-1], format_func=get_period_label)
+selected_period = st.selectbox("表示期間", periods[::-1], format_func=get_period_label,
+                               key="cf_period_select")
 row = cf[cf["期"] == selected_period].iloc[0]
 period_label = get_period_label(selected_period)
 
@@ -26,7 +27,7 @@ tab_sankey, tab_waterfall, tab_table = st.tabs(
 with tab_sankey:
     st.subheader(f"キャッシュフローの流れ ({period_label})")
     fig = create_cf_sankey(row, period_label)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="cf_sankey_chart")
 
     # CF分類の解説
     with st.expander("キャッシュフロー項目の解説"):
@@ -54,7 +55,7 @@ with tab_sankey:
 
     col1, col2 = st.columns([1, 3])
     with col1:
-        st.metric("CFパターン", pattern)
+        st.metric("CFパターン", pattern, key="cf_pattern_metric")
     with col2:
         st.info(desc)
 
@@ -73,20 +74,21 @@ with tab_waterfall:
     measures = ["absolute", "relative", "relative", "relative", "total"]
 
     fig = create_waterfall(cats, vals, f"現金残高ブリッジ ({period_label})", measures)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="cf_waterfall_chart")
 
     # 数値サマリー
     st.subheader("数値サマリー")
     cols = st.columns(3)
     with cols[0]:
-        st.metric("営業CF", f"{int(row['営業CF']):+,} 百万円")
+        st.metric("営業CF", f"{int(row['営業CF']):+,} 百万円", key="cf_wf_op_metric")
     with cols[1]:
-        st.metric("投資CF", f"{int(row['投資CF']):+,} 百万円")
+        st.metric("投資CF", f"{int(row['投資CF']):+,} 百万円", key="cf_wf_inv_metric")
     with cols[2]:
-        st.metric("財務CF", f"{int(row['財務CF']):+,} 百万円")
+        st.metric("財務CF", f"{int(row['財務CF']):+,} 百万円", key="cf_wf_fin_metric")
 
     fcf = row["営業CF"] + row["投資CF"]
-    st.metric("フリーキャッシュフロー (営業CF + 投資CF)", f"{int(fcf):+,} 百万円")
+    st.metric("フリーキャッシュフロー (営業CF + 投資CF)", f"{int(fcf):+,} 百万円",
+              key="cf_fcf_metric")
 
 # --- データテーブル ---
 with tab_table:
@@ -97,4 +99,5 @@ with tab_table:
     st.dataframe(
         display_df.style.format("{:,.0f}"),
         use_container_width=True,
+        key="cf_data_table",
     )

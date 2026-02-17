@@ -113,10 +113,11 @@ def create_pl_sankey(row: pd.Series, period_label: str) -> go.Figure:
 
     fig.update_layout(
         title=dict(text=f"損益計算書フロー ({period_label})", font=dict(size=16)),
-        font=dict(size=12),
-        height=500,
-        margin=dict(l=20, r=20, t=50, b=20),
+        font=dict(size=11),
+        height=700,
+        margin=dict(l=30, r=150, t=50, b=40),
     )
+    fig.update_traces(node=dict(pad=25))
     return fig
 
 
@@ -126,6 +127,7 @@ def create_waterfall(
     title: str,
     measures: list[str] | None = None,
     unit: str = "百万円",
+    hover_texts: list[str] | None = None,
 ) -> go.Figure:
     """ウォーターフォールチャートを生成する。
 
@@ -135,6 +137,7 @@ def create_waterfall(
         title: チャートタイトル。
         measures: 各バーの種類（"relative", "total", "absolute"）。
         unit: 値の単位。
+        hover_texts: 各バーのホバー時に表示する説明テキスト。
 
     Returns:
         Plotly Figure。
@@ -146,7 +149,7 @@ def create_waterfall(
     colors_decreasing = COLORS["negative"]
     colors_total = COLORS["total"]
 
-    fig = go.Figure(go.Waterfall(
+    waterfall_kwargs: dict[str, Any] = dict(
         orientation="v",
         measure=measures,
         x=categories,
@@ -158,8 +161,17 @@ def create_waterfall(
         decreasing=dict(marker=dict(color=colors_decreasing)),
         totals=dict(marker=dict(color=colors_total)),
         connector=dict(line=dict(color="rgba(0,0,0,0.3)", width=1)),
-        hovertemplate="%{x}<br>%{y:,.0f} " + unit + "<extra></extra>",
-    ))
+    )
+
+    if hover_texts is not None:
+        waterfall_kwargs["hovertext"] = hover_texts
+        waterfall_kwargs["hovertemplate"] = (
+            "<b>%{x}</b><br>%{hovertext}<br>金額: %{y:,.0f} " + unit + "<extra></extra>"
+        )
+    else:
+        waterfall_kwargs["hovertemplate"] = "%{x}<br>%{y:,.0f} " + unit + "<extra></extra>"
+
+    fig = go.Figure(go.Waterfall(**waterfall_kwargs))
 
     fig.update_layout(
         title=dict(text=title, font=dict(size=16)),
@@ -199,14 +211,28 @@ def create_treemap(
             colorbar=dict(title="前年比(%)"),
         )
 
-    fig = go.Figure(go.Treemap(
+    treemap_kwargs: dict[str, Any] = dict(
         labels=labels,
         parents=parents,
         values=values,
         marker=marker,
-        textinfo="label+value+percent parent",
         hovertemplate="<b>%{label}</b><br>売上: %{value:,} 百万円<br>構成比: %{percentParent:.1%}<extra></extra>",
-    ))
+    )
+
+    if color_values is not None:
+        # 前年比を直接ブロック内に表示
+        treemap_kwargs["customdata"] = color_values
+        treemap_kwargs["texttemplate"] = (
+            "<b>%{label}</b><br>%{value:,} 百万円<br>前年比: %{customdata:+.1f}%"
+        )
+        treemap_kwargs["hovertemplate"] = (
+            "<b>%{label}</b><br>売上: %{value:,} 百万円<br>"
+            "構成比: %{percentParent:.1%}<br>前年比: %{customdata:+.1f}%<extra></extra>"
+        )
+    else:
+        treemap_kwargs["textinfo"] = "label+value+percent parent"
+
+    fig = go.Figure(go.Treemap(**treemap_kwargs))
 
     fig.update_layout(
         title=dict(text=title, font=dict(size=16)),
@@ -263,25 +289,34 @@ def create_bs_block(row: pd.Series, period_label: str) -> go.Figure:
             hovertemplate=f"{name}: {int(val):,} 百万円<extra></extra>",
         ))
 
+    total_le = sum(v for _, v, _ in le_items)
     for name, val, color in le_items:
+        pct = val / total_le * 100 if total_le else 0
+        # 構成比が小さい項目はラベルを短縮
+        if pct < 5:
+            label = f"{int(val):,}"
+        else:
+            label = f"{name}<br>{int(val):,}"
         fig.add_trace(go.Bar(
             name=name,
             x=[0, val],
             y=categories,
             orientation="h",
             marker_color=color,
-            text=["", f"{name}<br>{int(val):,}"],
+            text=["", label],
             textposition="inside",
-            hovertemplate=f"{name}: {int(val):,} 百万円<extra></extra>",
+            insidetextanchor="middle",
+            hovertemplate=f"<b>{name}</b>: {int(val):,} 百万円 ({pct:.1f}%)<extra></extra>",
         ))
 
     fig.update_layout(
         barmode="stack",
         title=dict(text=f"貸借対照表 ({period_label})", font=dict(size=16)),
-        height=300,
+        height=350,
         xaxis_title="百万円",
-        margin=dict(l=100, r=20, t=50, b=40),
+        margin=dict(l=110, r=20, t=50, b=40),
         showlegend=False,
+        uniformtext=dict(minsize=8, mode="hide"),
     )
     return fig
 

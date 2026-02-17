@@ -59,22 +59,41 @@ with tab_waterfall:
             cats = [f"{prev_label}\n営業利益"]
             vals = [prev_row["営業利益"]]
             measures = ["absolute"]
+            hover_texts = [f"前期営業利益: {int(prev_row['営業利益']):,} 百万円"]
+            explanations = []
 
             for _, f_row in period_factors.iterrows():
                 cats.append(f_row["要因"])
-                # CSVの金額は文字列（+/-付き）なので変換
                 amount_str = str(f_row["金額"]).replace(",", "").replace("−", "-").replace("+", "")
                 vals.append(float(amount_str))
                 measures.append("relative")
+                desc = f_row.get("説明", "")
+                hover_texts.append(str(desc) if pd.notna(desc) else "")
+                explanations.append(f_row)
 
             cats.append(f"{period_label}\n営業利益")
             vals.append(row["営業利益"])
             measures.append("total")
+            hover_texts.append(f"当期営業利益: {int(row['営業利益']):,} 百万円")
 
-            fig = create_waterfall(cats, vals, f"営業利益ブリッジ ({prev_label} → {period_label})", measures)
-            st.plotly_chart(fig, use_container_width=True)
+            fig = create_waterfall(
+                cats, vals,
+                f"営業利益ブリッジ ({prev_label} → {period_label})",
+                measures, hover_texts=hover_texts,
+            )
+            st.plotly_chart(fig, use_container_width=True, key="pl_waterfall_chart")
+
+            # 変動要因の詳細（モバイル対応）
+            with st.expander("変動要因の詳細"):
+                for f_row in explanations:
+                    amount_str = str(f_row["金額"]).replace(",", "").replace("−", "-").replace("+", "")
+                    amount = float(amount_str)
+                    sign = "\U0001f4c8" if amount > 0 else "\U0001f4c9"
+                    st.markdown(f"{sign} **{f_row['要因']}** ({f_row['金額']}百万円)")
+                    desc = f_row.get("説明", "")
+                    if pd.notna(desc) and str(desc).strip():
+                        st.markdown(f"\u3000\u3000{desc}")
         else:
-            # 要因データがない場合はシンプルなウォーターフォール
             cats = [
                 f"{prev_label}\n営業利益",
                 "売上増減",
@@ -91,7 +110,7 @@ with tab_waterfall:
             ]
             measures = ["absolute", "relative", "relative", "relative", "total"]
             fig = create_waterfall(cats, vals, f"営業利益ブリッジ ({prev_label} → {period_label})", measures)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="pl_waterfall_simple")
     else:
         st.info("ウォーターフォールチャートは前年データが必要です。2期目以降を選択してください。")
 
